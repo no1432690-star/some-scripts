@@ -1,142 +1,102 @@
 -- =============================================
--- Decaying Winter: Eternal Fools - Fast HP Regen V3
--- SUPER DEBUG MODE - Liệt kê TẤT CẢ RemoteEvent
+-- Decaying Winter: Eternal Fools - Fast HP Regen V4 (Template)
+-- YÊU CẦU: Phải điền chính xác RemoteEvent vào cấu hình
 -- =============================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local enabled = true
-local connection = nil
+local enabled = false
 
-local dealDamageRemote = nil
-local serverKey = nil
-local playerKey = nil
+-- =============================================
+-- ⚙️ CẤU HÌNH REMOTE (BẠN PHẢI SỬA PHẦN NÀY)
+-- =============================================
+-- Ví dụ đường dẫn: game:GetService("ReplicatedStorage").Remotes.HealEvent
+local healRemote = nil -- ĐIỀN ĐƯỜNG DẪN REMOTE VÀO ĐÂY SAU KHI DÙNG SIMPLESPY
 
--- ================== SUPER FINDER (liệt kê tất cả remote) ==================
-local function superFinder()
-    print("🔍 [DW:EF V3] BẮT ĐẦU TÌM TẤT CẢ REMOTE...")
-    
-    local remotesFound = 0
-    
-    -- Tìm trong mọi nơi client có thể thấy
-    for _, obj in ipairs(game:GetDescendants()) do
-        if obj:IsA("RemoteEvent") then
-            remotesFound = remotesFound + 1
-            local fullPath = obj:GetFullName()
-            print("📡 RemoteEvent #" .. remotesFound .. ": " .. fullPath)
-            
-            -- Tự động nhận remote nếu tên giống
-            if fullPath:lower():find("dealdamage") or fullPath:lower():find("deal_damage") or 
-               fullPath:lower():find("regen") or fullPath:lower():find("heal") or 
-               fullPath:lower():find("damage") then
-                dealDamageRemote = obj
-                print("✅ TÌM THẤY REMOTE TỐT: " .. fullPath)
-            end
-        end
-    end
-    
-    print("🔍 Tìm thấy tổng cộng " .. remotesFound .. " RemoteEvent.")
-    
-    -- Tìm key
-    pcall(function()
-        serverKey = _G.serverKey or _G.ServerKey or _G.key or _G.Key
-        playerKey = _G.playerKey or _G.PlayerKey or _G.pkey or _G.PKey
-    end)
-    
-    if serverKey and playerKey then
-        print("✅ KEY TÌM THẤY: serverKey = " .. tostring(serverKey) .. " | playerKey = " .. tostring(playerKey))
-    else
-        print("⚠️ VẪN KHÔNG TÌM ĐƯỢC KEY")
-    end
-    
-    if dealDamageRemote then
-        print("🎯 SẼ DÙNG REMOTE: " .. dealDamageRemote:GetFullName())
-    else
-        print("❌ KHÔNG TÌM THẤY REMOTE DEALDAMAGE/REGEN NÀO")
+-- Điền các tham số (arguments) mà game yêu cầu để hồi máu
+local function fireHealRemote()
+    if healRemote then
+        pcall(function()
+            -- THAY ĐỔI CÁC THAM SỐ TRONG NGOẶC CHO ĐÚNG VỚI GAME
+            -- Ví dụ: healRemote:FireServer("Heal", 50, "SecretKey123")
+            healRemote:FireServer() 
+        end)
     end
 end
 
--- ================== GUI (giữ nguyên) ==================
+-- =============================================
+-- 🎨 TẠO GUI ĐƠN GIẢN & AN TOÀN
+-- =============================================
 local function createGUI()
-    if player.PlayerGui:FindFirstChild("DW_FastHPRegenGUI") then
-        player.PlayerGui.DW_FastHPRegenGUI:Destroy()
+    local guiName = "DW_FastHPRegenGUI_V4"
+    if player.PlayerGui:FindFirstChild(guiName) then
+        player.PlayerGui[guiName]:Destroy()
     end
 
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "DW_FastHPRegenGUI"
+    screenGui.Name = guiName
     screenGui.ResetOnSpawn = false
     screenGui.Parent = player.PlayerGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 240, 0, 90)
-    frame.Position = UDim2.new(1, -260, 0, 20)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.Size = UDim2.new(0, 200, 0, 60)
+    frame.Position = UDim2.new(1, -220, 0, 20)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     frame.BorderSizePixel = 0
-    frame.BackgroundTransparency = 0.1
     frame.Parent = screenGui
 
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 14)
+    corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = frame
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, -20, 1, -20)
-    button.Position = UDim2.new(0, 10, 0, 10)
-    button.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    button.Text = "Fast HP Regen V3: ON\n(Debug Mode)"
-    button.TextColor3 = Color3.new(1,1,1)
-    button.TextScaled = true
+    button.Size = UDim2.new(1, -10, 1, -10)
+    button.Position = UDim2.new(0, 5, 0, 5)
+    button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    button.Text = "Regen: OFF"
+    button.TextColor3 = Color3.new(1, 1, 1)
     button.Font = Enum.Font.GothamBold
+    button.TextScaled = true
     button.Parent = frame
 
     local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 10)
+    btnCorner.CornerRadius = UDim.new(0, 6)
     btnCorner.Parent = button
 
     button.MouseButton1Click:Connect(function()
         enabled = not enabled
-        button.Text = enabled and "Fast HP Regen V3: ON\n(Debug Mode)" or "Fast HP Regen V3: OFF"
-        button.BackgroundColor3 = enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
-        print(enabled and "✅ V3: BẬT" or "❌ V3: TẮT")
+        if enabled then
+            button.Text = "Regen: ON"
+            button.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        else
+            button.Text = "Regen: OFF"
+            button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
     end)
 end
 
--- ================== REGEN ==================
-local function fastRegen()
-    if not enabled then return end
-    local character = player.Character
-    if not character or not character:FindFirstChild("Humanoid") then return end
-    local hum = character.Humanoid
-    if hum.Health >= hum.MaxHealth then return end
-
-    pcall(function()
-        -- Dùng remote nếu tìm thấy
-        if dealDamageRemote then
-            for i = 1, 10 do
-                if serverKey and playerKey then
-                    dealDamageRemote:FireServer("Regeneration", nil, serverKey, playerKey)
-                else
-                    dealDamageRemote:FireServer("Regeneration")
+-- =============================================
+-- ⚙️ VÒNG LẶP HỒI MÁU (SPAM REMOTE)
+-- =============================================
+-- Dùng task.spawn và vòng lặp while để dễ dàng kiểm soát tốc độ gửi,
+-- tránh việc gửi quá nhanh bằng Heartbeat khiến game kick bạn vì spam.
+task.spawn(function()
+    while task.wait(0.2) do -- Tốc độ spam: 0.2 giây / lần (điều chỉnh nếu cần)
+        if enabled then
+            local character = player.Character
+            if character then
+                local hum = character:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 and hum.Health < hum.MaxHealth then
+                    -- Gọi hàm gửi Remote lên server
+                    fireHealRemote()
                 end
             end
         end
-        -- Fallback client
-        hum.Health = math.min(hum.MaxHealth, hum.Health + 200)
-    end)
-end
-
--- ================== CHẠY ==================
-superFinder()
-createGUI()
-
-connection = RunService.Heartbeat:Connect(fastRegen)
-
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    superFinder()
+    end
 end)
 
-print("🚀 V3 ĐÃ LOAD - DEBUG MODE")
-print("   Mở F9 và paste TOÀN BỘ console cho mình nhé!")
+-- Khởi chạy
+createGUI()
+print("🚀 Đã tải V4 Template. Nhớ cập nhật RemoteEvent trong script!")
