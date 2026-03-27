@@ -18,14 +18,14 @@ local Settings = {
     ShowHP = true
 }
 
---// FOV CIRCLE
+--// FOV
 local circle = Drawing.new("Circle")
 circle.Visible = true
 circle.Thickness = 2
 circle.Filled = false
 circle.Transparency = 0.6
 
---// HP TEXT STORAGE
+--// HP STORAGE
 local HPText = {}
 
 --// CREATE HP TEXT
@@ -65,6 +65,26 @@ local function setupHP(model)
     HPText[model] = bill
 end
 
+--// AUTO HP LOOP (FIX SPAWN)
+task.spawn(function()
+    while true do
+        task.wait(1)
+
+        if not Settings.ShowHP then continue end
+
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and v ~= player.Character then
+                local hum = v:FindFirstChildOfClass("Humanoid")
+                local root = v:FindFirstChild("HumanoidRootPart")
+
+                if hum and root then
+                    setupHP(v)
+                end
+            end
+        end
+    end
+end)
+
 --// CLEANUP
 RunService.RenderStepped:Connect(function()
     for model, gui in pairs(HPText) do
@@ -86,10 +106,6 @@ local function getTarget()
             local root = v:FindFirstChild("HumanoidRootPart")
 
             if part and root then
-                if Settings.ShowHP then
-                    setupHP(v)
-                end
-
                 local pos, visible = Camera:WorldToViewportPoint(part.Position)
                 if visible then
                     local dist = (Vector2.new(pos.X,pos.Y) - Vector2.new(mouse.X,mouse.Y)).Magnitude
@@ -145,7 +161,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
---// GUI (CHẮC CHẮN HIỆN)
+--// GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "AimGUI"
 gui.Parent = player:WaitForChild("PlayerGui")
@@ -178,4 +194,11 @@ hpToggle.Parent = frame
 hpToggle.MouseButton1Click:Connect(function()
     Settings.ShowHP = not Settings.ShowHP
     hpToggle.Text = Settings.ShowHP and "HP: ON" or "HP: OFF"
+
+    if not Settings.ShowHP then
+        for model, gui in pairs(HPText) do
+            gui:Destroy()
+            HPText[model] = nil
+        end
+    end
 end)
