@@ -11,12 +11,12 @@ local mouse = player:GetMouse()
 local Settings = {
     Enabled = true,
     FOV = 120,
-    Smoothness = 0.12,
+    Smoothness = 0.08, -- thấp = gần silent hơn
     Prediction = 0.1,
     AimPart = "Head",
-    TeamCheck = false,
-    Holding = false,
-    ESP = true
+    ShootAssist = true,
+    ESP = true,
+    ShowHP = true
 }
 
 --// DRAW FOV
@@ -24,65 +24,42 @@ local circle = Drawing.new("Circle")
 circle.Visible = true
 circle.Thickness = 2
 circle.Filled = false
-circle.Transparency = 0.7
+circle.Transparency = 0.6
 
---// ESP STORAGE
+--// STORAGE
 local ESPs = {}
+local HPLabels = {}
 
---// CREATE ESP
-local function createESP(model)
-    if not Settings.ESP then return end
-    if ESPs[model] then return end
+--// CREATE HP LABEL
+local function createHP(model)
+    if HPLabels[model] then return end
 
-    local box = Drawing.new("Square")
-    box.Thickness = 1
-    box.Filled = false
-    box.Transparency = 0.8
+    local bill = Instance.new("BillboardGui")
+    bill.Size = UDim2.new(0, 100, 0, 20)
+    bill.AlwaysOnTop = true
 
-    ESPs[model] = box
+    local text = Instance.new("TextLabel", bill)
+    text.Size = UDim2.new(1,0,1,0)
+    text.BackgroundTransparency = 1
+    text.TextColor3 = Color3.new(1,0,0)
+    text.TextScaled = true
+
+    HPLabels[model] = {Gui = bill, Text = text}
 end
 
---// REMOVE ESP
-local function removeESP(model)
-    if ESPs[model] then
-        ESPs[model]:Remove()
-        ESPs[model] = nil
+--// UPDATE HP
+local function updateHP(model)
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart")
+
+    if hum and root then
+        createHP(model)
+
+        local data = HPLabels[model]
+        data.Gui.Parent = root
+        data.Text.Text = math.floor(hum.Health) .. " / " .. math.floor(hum.MaxHealth)
     end
 end
-
---// UPDATE ESP
-RunService.RenderStepped:Connect(function()
-    circle.Position = Vector2.new(mouse.X, mouse.Y)
-    circle.Radius = Settings.FOV
-
-    for model, box in pairs(ESPs) do
-        if model and model:FindFirstChild("HumanoidRootPart") then
-            local pos, visible = Camera:WorldToViewportPoint(model.HumanoidRootPart.Position)
-            if visible then
-                box.Visible = true
-                box.Size = Vector2.new(40, 60)
-                box.Position = Vector2.new(pos.X - 20, pos.Y - 30)
-            else
-                box.Visible = false
-            end
-        else
-            removeESP(model)
-        end
-    end
-end)
-
---// INPUT
-UIS.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        Settings.Holding = true
-    end
-end)
-
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        Settings.Holding = false
-    end
-end)
 
 --// TARGET
 local function getTarget()
@@ -95,7 +72,9 @@ local function getTarget()
             local root = v:FindFirstChild("HumanoidRootPart")
 
             if part and root then
-                createESP(v)
+                if Settings.ShowHP then
+                    updateHP(v)
+                end
 
                 local pos, visible = Camera:WorldToViewportPoint(part.Position)
                 if visible then
@@ -112,9 +91,27 @@ local function getTarget()
     return closest
 end
 
---// AIM
+--// AIM (CHỈ KHI BẮN)
+local shooting = false
+
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = false
+    end
+end)
+
 RunService.RenderStepped:Connect(function()
-    if not Settings.Enabled or not Settings.Holding then return end
+    circle.Position = Vector2.new(mouse.X, mouse.Y)
+    circle.Radius = Settings.FOV
+
+    if not Settings.Enabled then return end
+    if Settings.ShootAssist and not shooting then return end
 
     local target = getTarget()
     if target then
@@ -131,84 +128,4 @@ RunService.RenderStepped:Connect(function()
             Camera.CFrame = Camera.CFrame:Lerp(aimCF, Settings.Smoothness)
         end
     end
-end)
-
---// GUI (DRAGGABLE + SLIDER)
-local gui = Instance.new("ScreenGui", player.PlayerGui)
-gui.Name = "ProAimGUI"
-
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 220, 0, 180)
-frame.Position = UDim2.new(1, -240, 0, 60)
-frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-frame.Active = true
-frame.Draggable = true
-
-local function createLabel(text, y)
-    local lbl = Instance.new("TextLabel", frame)
-    lbl.Size = UDim2.new(1, 0, 0, 20)
-    lbl.Position = UDim2.new(0, 0, 0, y)
-    lbl.Text = text
-    lbl.TextScaled = true
-    lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = Color3.new(1,1,1)
-end
-
-local function createSlider(name, y, min, max, callback)
-    createLabel(name, y)
-
-    local bar = Instance.new("Frame", frame)
-    bar.Size = UDim2.new(1, -20, 0, 10)
-    bar.Position = UDim2.new(0, 10, 0, y + 20)
-    bar.BackgroundColor3 = Color3.fromRGB(60,60,60)
-
-    local fill = Instance.new("Frame", bar)
-    fill.Size = UDim2.new(0.5, 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(0,170,255)
-
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local move
-            move = UIS.InputChanged:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseMovement then
-                    local percent = math.clamp((i.Position.X - bar.AbsolutePosition.X)/bar.AbsoluteSize.X, 0, 1)
-                    fill.Size = UDim2.new(percent,0,1,0)
-
-                    local value = min + (max-min)*percent
-                    callback(value)
-                end
-            end)
-
-            UIS.InputEnded:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 then
-                    move:Disconnect()
-                end
-            end)
-        end
-    end)
-end
-
--- Sliders
-createSlider("FOV", 10, 50, 300, function(v)
-    Settings.FOV = v
-end)
-
-createSlider("Smooth", 60, 0.05, 0.3, function(v)
-    Settings.Smoothness = v
-end)
-
-createSlider("Prediction", 110, 0, 0.3, function(v)
-    Settings.Prediction = v
-end)
-
--- Toggle
-local toggle = Instance.new("TextButton", frame)
-toggle.Size = UDim2.new(1, -20, 0, 30)
-toggle.Position = UDim2.new(0, 10, 1, -40)
-toggle.Text = "Toggle Aim"
-toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-toggle.TextScaled = true
-
-toggle.MouseButton1Click:Connect(function()
-    Settings.Enabled = not Settings.Enabled
 end)
