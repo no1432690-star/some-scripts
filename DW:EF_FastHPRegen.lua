@@ -23,7 +23,9 @@ end
 
 --// COLOR BY HP %
 local function getColor(percent)
-    if percent > 0.6 then
+    if percent >= 1 then
+        return Color3.fromRGB(255,255,255) -- FULL HP = WHITE
+    elseif percent > 0.6 then
         return Color3.fromRGB(0,255,0)
     elseif percent > 0.3 then
         return Color3.fromRGB(255,170,0)
@@ -40,11 +42,11 @@ local function setupHP(model)
     local root = model:FindFirstChild("HumanoidRootPart")
 
     if not hum or not root then return end
-    if isPlayerModel(model) then return end -- bỏ player
+    if isPlayerModel(model) then return end
 
     local bill = Instance.new("BillboardGui")
-    bill.Size = UDim2.new(0, 100, 0, 20)
-    bill.StudsOffset = Vector3.new(0, 2.5, 0)
+    bill.Size = UDim2.new(0, 120, 0, 30) -- tăng size cho dễ nhìn
+    bill.StudsOffset = Vector3.new(0, 2.8, 0)
     bill.AlwaysOnTop = true
     bill.Parent = root
 
@@ -52,6 +54,12 @@ local function setupHP(model)
     text.Size = UDim2.new(1,0,1,0)
     text.BackgroundTransparency = 1
     text.TextScaled = true
+
+    -- 🔥 VIỀN ĐEN ĐẬM
+    text.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+    text.TextStrokeTransparency = 0 -- 0 = đậm nhất
+
+    text.Font = Enum.Font.GothamBold -- chữ rõ hơn
     text.Parent = bill
 
     local function update()
@@ -111,7 +119,7 @@ local function tryRegister(model)
     end)
 end
 
---// INITIAL SCAN (1 lần)
+--// INITIAL SCAN
 for _, v in pairs(workspace:GetDescendants()) do
     tryRegister(v)
 end
@@ -121,7 +129,7 @@ workspace.DescendantAdded:Connect(function(v)
     tryRegister(v)
 end)
 
---// LIGHT UPDATE LOOP (chỉ để check distance)
+--// CLEAN LOOP
 RunService.Heartbeat:Connect(function()
     for model, bill in pairs(HPText) do
         if not model or not model.Parent then
